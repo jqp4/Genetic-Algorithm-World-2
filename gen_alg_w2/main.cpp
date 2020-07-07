@@ -20,7 +20,7 @@ const int width   = 2100;
 const int height  = 1400;
 const int xcenter = width/2;
 const int ycenter = height/2;
-const int CA/*commandAmount*/ = 3;//64;
+const int CA/*commandAmount*/ = 8;//64;
 #define rca (rand() % CA)
 #define freeindex (*free_indexes.begin())
 const bool debug = true;
@@ -35,14 +35,14 @@ public:
     static const int xLen = 30;
     static const int yLen = 20;
     static const int MBA  = xLen * yLen; //maxBotAmount
-    static int field[yLen][xLen],  ba; //BotAmount
+    int field[yLen][xLen],  ba; //BotAmount
     std::set<int> free_indexes;
     static struct Parameters{
-        int fotosintesis = 20;
-        int max_enetgy = 512;
+        int fotosintesis_energy = 20;
+        int max_energy = 512;
     } param;
     
-    static class Bot{
+    class Bot{
     public:
         int genome[CA];
         int birthday;
@@ -71,64 +71,88 @@ public:
         
         void mutation(){ genome[rca] = rca; }
         
-        /*bool operator <  (const Bot &b) const { return birthday <  b.birthday; } //true; }
-        bool operator >  (const Bot &b) const { return birthday >  b.birthday; } //true; }
-        bool operator == (const Bot &b) const { return birthday == b.birthday; } //true; }
-        bool operator <= (const Bot &b) const { return birthday <= b.birthday; } //true; }
-        bool operator >= (const Bot &b) const { return birthday >= b.birthday; } //true; }*/
+        /*bool operator <  (const Bot &b) const { return birthday <  b.birthday; }
+        bool operator >  (const Bot &b) const { return birthday >  b.birthday; }
+        bool operator == (const Bot &b) const { return birthday == b.birthday; }
+        bool operator <= (const Bot &b) const { return birthday <= b.birthday; }
+        bool operator >= (const Bot &b) const { return birthday >= b.birthday; }*/
     } bots[MBA];
     
-    static class ActsWithBot{
-        bool move(int i, int direction){
-            int tx = bots[i].x;
-            int ty = bots[i].y;
-            //directoin:  6 7 0
-            //            5   1
-            //            4 3 2
-            switch (direction) {
+    bool bot__move(int i, int direction){
+        int tx = bots[i].x;
+        int ty = bots[i].y;
+        //directoin:  6 7 0
+        //            5   1
+        //            4 3 2
+        switch (direction) {
+            case 0:
+                tx = (xLen + tx + 1) % xLen;
+                ty = (xLen + ty - 1) % xLen;
+                break;
+            case 1:
+                tx = (xLen + tx + 1) % xLen;
+                break;
+            case 2:
+                tx = (xLen + tx + 1) % xLen;
+                ty = (xLen + ty + 1) % xLen;
+                break;
+            case 3:
+                ty = (xLen + ty + 1) % xLen;
+                break;
+            case 4:
+                tx = (xLen + tx - 1) % xLen;
+                ty = (xLen + ty + 1) % xLen;
+                break;
+            case 5:
+                tx = (xLen + tx - 1) % xLen;
+                break;
+            case 6:
+                tx = (xLen + tx - 1) % xLen;
+                ty = (xLen + ty - 1) % xLen;
+                break;
+            case 7:
+                ty = (xLen + ty - 1) % xLen;
+                break;
+            default:
+                return false;
+        }
+        
+        if (field[tx][ty] == 0){
+            field[tx][ty] = i;
+            field[bots[i].x][bots[i].y] = 0;
+            bots[i].x = tx;
+            bots[i].y = ty;
+            return true;
+        } else {
+            return false;
+        }
+    }
+    
+    bool bot__fotosintesis(int i){
+        bots[i].energy = (bots[i].energy + param.fotosintesis_energy) % param.max_energy;
+        return true;
+    }
+    
+    bool bots_act(int i){
+        for (int i = 0; i < ba; i++){
+            int p = bots[i].pointer;
+            int act = bots[i].genome[p];
+            switch (act) {
                 case 0:
-                    tx = (xLen + tx + 1) % xLen;
-                    ty = (xLen + ty - 1) % xLen;
+                    bot__move(i, bots[i].genome[p + 1]);
+                    bots[i].pointer = (p + 2) % CA;
                     break;
                 case 1:
-                    tx = (xLen + tx + 1) % xLen;
-                    break;
-                case 2:
-                    tx = (xLen + tx + 1) % xLen;
-                    ty = (xLen + ty + 1) % xLen;
-                    break;
-                case 3:
-                    ty = (xLen + ty + 1) % xLen;
-                    break;
-                case 4:
-                    tx = (xLen + tx - 1) % xLen;
-                    ty = (xLen + ty + 1) % xLen;
-                    break;
-                case 5:
-                    tx = (xLen + tx - 1) % xLen;
-                    break;
-                case 6:
-                    tx = (xLen + tx - 1) % xLen;
-                    ty = (xLen + ty - 1) % xLen;
-                    break;
-                case 7:
-                    ty = (xLen + ty - 1) % xLen;
+                    bot__fotosintesis(i);
+                    bots[i].pointer = (p + 1) % CA;
                     break;
                 default:
-                    return false;
-            }
-            
-            if (field[tx][ty] == 0){
-                field[tx][ty] = i;
-                field[bots[i].x][bots[i].y] = 0;
-                bots[i].x = tx;
-                bots[i].y = ty;
-                return true;
-            } else {
-                return false;
+                    bots[i].pointer = (p + act) % CA;
+                    break;
             }
         }
-    } awf;
+        return true;
+    }
     
     World(int bot_amount = 10){
         ba = bot_amount;
