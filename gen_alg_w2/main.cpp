@@ -8,16 +8,68 @@
 
 #include <SFML/Graphics.hpp>
 #include <iostream>
+#include <cstdlib>
+#include <ctime>
 #include <cmath>
 
-
-const int height = 1400, width = 2100;
-const int xcenter = width/2, ycenter = height/2;
+const int width   = 2100;
+const int height  = 1400;
+const int xcenter = width/2;
+const int ycenter = height/2;
+const int CA/*commandAmount*/ = 64;
+#define rca (rand() % CA)
 const bool debug = true;
 int iteration = 0;
 
 
+class Bot{
+public:
+    int genome[CA];
+    int pointer;
+    
+    Bot(){
+        pointer = 0;
+        for (int i = 0; i < CA; i++){
+            genome[i] = rca;
+        }
+    }
+    
+    void mutation(){
+        //std::cout << "\n" << rand() << "\n";
+        genome[rca] = rca;
+    }
+};
 
+
+class World{
+public:
+    static const int xLen = 30;
+    static const int yLen = 20;
+    static const int MBA/*maxBotAmount*/ = xLen * yLen;
+    int field[yLen][xLen];
+    Bot bots[MBA];
+    int ba/*BotAmount*/;
+    class ActsOfBot{
+        
+    } aof;
+    
+    World(){
+        ba = 10;
+        
+    }
+    
+    std::string get_info(){
+        std::string str;
+        char buf[200];
+        int res = snprintf(buf, sizeof(buf), "Bot Amount = %3.d", ba);
+        if (res >= 0 && res < sizeof(buf)){
+            str += buf;
+        } else {
+            str = "FORMAT ERROR";
+        }
+        return str;
+    }
+};
 
 
 void set_text_settings(sf::Text *text, sf::Font *font, int size, sf::Color color){
@@ -51,12 +103,11 @@ std::string get_debug_info(){
 }
 
 
-
-
 int main(){
+    srand(static_cast<unsigned int>(time(nullptr))); 
     sf::ContextSettings settings;
     settings.antialiasingLevel = 8;
-    sf::RenderWindow window(sf::VideoMode(width, height), "Thick Line", sf::Style::Default, settings);
+    sf::RenderWindow window(sf::VideoMode(width, height), "Gen Alg", sf::Style::Default, settings);
     sf::Vertex axes[] = {
         sf::Vertex(sf::Vector2f(0, ycenter)), sf::Vertex(sf::Vector2f(width, ycenter)),
         sf::Vertex(sf::Vector2f(xcenter, 0)), sf::Vertex(sf::Vector2f(xcenter, height)),
@@ -65,6 +116,11 @@ int main(){
     sf::Text text;
     sf::Font font;
     set_text_settings(&text, &font, 30, sf::Color::Green);
+    
+    World world;
+    
+    
+    
     
     while(window.isOpen()){
         sf::Event event;
@@ -83,7 +139,8 @@ int main(){
         
         window.draw(axes, 6, sf::Lines);
         if (debug){
-            text.setString(get_debug_info());
+            //text.setString(get_debug_info());
+            text.setString(world.get_info());
             window.draw(text);
         }
         window.display();
