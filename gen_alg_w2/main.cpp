@@ -35,17 +35,24 @@ public:
     static const int xLen = 30;
     static const int yLen = 20;
     static const int MBA  = xLen * yLen; //maxBotAmount
-    int field[yLen][xLen],  ba; //BotAmount
+    static int field[yLen][xLen],  ba; //BotAmount
     std::set<int> free_indexes;
+    static struct Parameters{
+        int fotosintesis = 20;
+        int max_enetgy = 512;
+    } param;
     
-    class Bot{
+    static class Bot{
     public:
         int genome[CA];
         int birthday;
         int pointer;
+        int energy;
+        int x, y;
         
         Bot(int global_iter = -1){
             pointer = 0;
+            energy  = 100;
             birthday = global_iter;
             for (int i = 0; i < CA; i++){
                 genome[i] = rca;
@@ -54,6 +61,7 @@ public:
         
         void copy(Bot parent, int global_iter = -1){
             pointer = 0;
+            energy  = 100;
             birthday = global_iter;
             //genome = parent.genome;
             for (int i = 0; i < CA; i++){
@@ -70,18 +78,75 @@ public:
         bool operator >= (const Bot &b) const { return birthday >= b.birthday; } //true; }*/
     } bots[MBA];
     
-    class ActsOfBot{
-        
-    } aof;
+    static class ActsWithBot{
+        bool move(int i, int direction){
+            int tx = bots[i].x;
+            int ty = bots[i].y;
+            //directoin:  6 7 0
+            //            5   1
+            //            4 3 2
+            switch (direction) {
+                case 0:
+                    tx = (xLen + tx + 1) % xLen;
+                    ty = (xLen + ty - 1) % xLen;
+                    break;
+                case 1:
+                    tx = (xLen + tx + 1) % xLen;
+                    break;
+                case 2:
+                    tx = (xLen + tx + 1) % xLen;
+                    ty = (xLen + ty + 1) % xLen;
+                    break;
+                case 3:
+                    ty = (xLen + ty + 1) % xLen;
+                    break;
+                case 4:
+                    tx = (xLen + tx - 1) % xLen;
+                    ty = (xLen + ty + 1) % xLen;
+                    break;
+                case 5:
+                    tx = (xLen + tx - 1) % xLen;
+                    break;
+                case 6:
+                    tx = (xLen + tx - 1) % xLen;
+                    ty = (xLen + ty - 1) % xLen;
+                    break;
+                case 7:
+                    ty = (xLen + ty - 1) % xLen;
+                    break;
+                default:
+                    return false;
+            }
+            
+            if (field[tx][ty] == 0){
+                field[tx][ty] = i;
+                field[bots[i].x][bots[i].y] = 0;
+                bots[i].x = tx;
+                bots[i].y = ty;
+                return true;
+            } else {
+                return false;
+            }
+        }
+    } awf;
     
     World(int bot_amount = 10){
         ba = bot_amount;
-        for (int i = ba - 1; i < MBA; i++){
+        for (int i = ba; i < MBA; i++){
             free_indexes.insert(i);
         }
         for (int i = 0; i < yLen; i++){
             for (int j = 0; j < xLen; j++){
                 field[i][j] = 0;
+            }
+        }
+        for (int i = 0; i < ba; i++){
+            int tx = rand() % xLen;
+            int ty = rand() % yLen;
+            if (field[tx][ty] == 0){
+                field[tx][ty] = i;
+                bots[i].x = tx;
+                bots[i].y = ty;
             }
         }
     }
@@ -101,8 +166,8 @@ void set_text_settings(sf::Text *text, sf::Font *font, int size, sf::Color color
 
 
 std::string get_debug_info(World world){
-    std::string str = "iteration " + std::to_string(iteration) + "\n";
-    char buf[100];
+    std::string str = "World, iteration " + std::to_string(iteration) + "\n";
+    char buf[20];
     /*for (int i = 0; i < line.settings.n; i++){
         int res = snprintf(buf, sizeof(buf), \
                            "zln[%02.d] x = %4.d y = %4.d xn = %6.3f yn = %6.3f a = %6.3f\n", \
@@ -115,7 +180,7 @@ std::string get_debug_info(World world){
             break;
         }
     }*/
-    int res = snprintf(buf, sizeof(buf), "Bot Amount = %3.d", world.ba);
+    int res = snprintf(buf, sizeof(buf), "Bot Amount = %d", world.ba);
     if (res >= 0 && res < sizeof(buf)){
         str += buf;
     } else {
@@ -139,8 +204,6 @@ int main(){
     set_text_settings(&text, &font, 30, sf::Color::Green);
     
     World world;
-    
-    
     
     
     while(window.isOpen()){
@@ -186,7 +249,7 @@ int main_set_test(){
     free_indexes.insert(4);
     free_indexes.insert(5);
     free_indexes.insert(6);
-    
+    free_indexes.erase(free_indexes.begin());
     std::cout << freeindex << "\n";
     
     return 0;
