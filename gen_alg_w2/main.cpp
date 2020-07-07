@@ -6,8 +6,6 @@
 //  Copyright © 2020  Gleb. All rights reserved.
 //
 
-//https://en.cppreference.com/w/cpp/language/operator_comparison
-
 #include <SFML/Graphics.hpp>
 #include <iostream>
 #include <cstdlib>
@@ -16,62 +14,51 @@
 #include <cmath>
 #include <set>
 
-const int width   = 2100;
-const int height  = 1400;
-const int CA/*commandAmount*/ = 8;//64;
+
+const int width  = 2100;
+const int height = 1400;
+const int xLen = 30;
+const int yLen = 20;
+const int MBA  = xLen * yLen; //maxBotAmount
+const int CA = 8;//64; //commandAmount
 #define rca (rand() % CA)
 #define freeindex (*free_indexes.begin())
+const sf::Color bgColor = sf::Color::Black;
 const bool debug = true;
 int iteration = 0;
 
 
+
 class World{
 public:
-    static const int xLen = 30;
-    static const int yLen = 20;
-    static const int MBA  = xLen * yLen; //maxBotAmount
-    int field[yLen][xLen],  ba; //BotAmount
+    int field[xLen][yLen], ba, lbn; //botAmount, lastBotNumber
     std::set<int> free_indexes;
     int fotosintesis_energy = 20;
-    int max_energy = 512;
+    int max_energy = 500;
     int energy_perit = 10;
 
-        
     class Bot{
     public:
         int genome[CA];
-        int birthday;
+        //int birthday;
         int pointer;
         int energy;
         int number;
+        bool alive;
         int x, y;
         
-        Bot(int global_iter = -1){
+        Bot(){
             pointer = 0;
             energy  = 100;
-            birthday = global_iter;
+            alive   = true;
             for (int i = 0; i < CA; i++){
                 genome[i] = rca;
             }
         }
         
-        void copy(Bot parent, int global_iter = -1){
-            pointer = 0;
-            energy  = 100;
-            birthday = global_iter;
-            //genome = parent.genome;
-            for (int i = 0; i < CA; i++){
-                genome[i] = parent.genome[i];
-            }
+        void mutation(){
+            genome[rca] = rca;
         }
-        
-        void mutation(){ genome[rca] = rca; }
-        
-        /*bool operator <  (const Bot &b) const { return birthday <  b.birthday; }
-        bool operator >  (const Bot &b) const { return birthday >  b.birthday; }
-        bool operator == (const Bot &b) const { return birthday == b.birthday; }
-        bool operator <= (const Bot &b) const { return birthday <= b.birthday; }
-        bool operator >= (const Bot &b) const { return birthday >= b.birthday; }*/
     } bots[MBA];
     
     bool bot__move(int i, int direction){
@@ -113,73 +100,121 @@ public:
                 return false;
         }
         
-        if (field[ty][tx] == 0){
-            field[bots[i].y][bots[i].x] = 0;
-            field[ty][tx] = i;
+        if (field[tx][ty] == -1){
+            field[bots[i].x][bots[i].y] = -1;
+            field[tx][ty] = i;
             bots[i].x = tx;
             bots[i].y = ty;
             return true;
-        } else {
-            return false;
+        }
+        return false;
+    }
+    
+    void bot__fotosintesis(int i){
+        bots[i].energy = (bots[i].energy + fotosintesis_energy);
+        if (bots[i].energy > max_energy){
+            bots[i].energy = max_energy;
         }
     }
     
-    bool bot__fotosintesis(int i){
-        bots[i].energy = (bots[i].energy + fotosintesis_energy) % max_energy;
-        return true;
-    }
-    
-    bool bot__die(int i){
-        field[bots[i].y][bots[i].x] = -1;
-        bots[i] = bots[ba - 1];
+    void bot__die(int i){
+        field[bots[i].x][bots[i].y] = -2;
+        bots[i].alive = false;
         ba--;
         free_indexes.insert(i);
-        return true;
     }
     
-    bool bots_act(){
-        for (int i = 0; i < ba; i++){
-            int p = bots[i].pointer;
-            int act = bots[i].genome[p];
-            switch (act) {
-                case 0:
-                    bot__move(i, bots[i].genome[p + 1]);
-                    bots[i].pointer = (p + 2) % CA;
-                    break;
-                case 1:
-                    bot__fotosintesis(i);
-                    bots[i].pointer = (p + 1) % CA;
-                    break;
-                default:
-                    bots[i].pointer = (p + act) % CA;
-                    break;
-            }
-            bots[i].energy -= energy_perit;
-            if (bots[i].energy <= 0){
-                bot__die(i);
+    void bots_act(){
+        for (int i = 0; i < lbn; i++){
+            if (bots[i].alive){
+                int p = bots[i].pointer;
+                int act = bots[i].genome[p];
+                bool r;
+                switch (act) {
+                    case 0:
+                        r = bot__move(i, bots[i].genome[p + 1]);
+                        bots[i].pointer = (p + 2) % CA;
+                        break;
+                    case 1:
+                        bot__fotosintesis(i);
+                        bots[i].pointer = (p + 1) % CA;
+                        break;
+                    default:
+                        bots[i].pointer = (p + act) % CA;
+                        break;
+                }
+                bots[i].energy -= energy_perit;
+                if (bots[i].energy <= 0){
+                    bot__die(i);
+                }
             }
         }
-        return true;
     }
     
-    World(int bot_amount = 50){
-        ba = bot_amount;
-        for (int i = ba; i < MBA; i++){
+    World(int bot_amount = xLen + yLen){
+        ba  = bot_amount;
+        lbn = bot_amount;
+        for (int i = lbn; i < MBA; i++){
             free_indexes.insert(i);
         }
-        for (int i = 0; i < yLen; i++){
-            for (int j = 0; j < xLen; j++){
-                field[i][j] = 0;
+        for (int x = 0; x < xLen; x++){
+            for (int y = 0; y < yLen; y++){
+                field[x][y] = -1;
             }
         }
-        for (int i = 0; i < ba; i++){
-            int tx = rand() % xLen;
-            int ty = rand() % yLen;
-            if (field[ty][tx] == 0){
-                bots[i].number = i;
-                field[ty][tx] = i;
-                bots[i].x = tx;
-                bots[i].y = ty;
+        for (int i = 0; i < lbn; i++){
+            bool done = false;
+            while (!done){
+                int tx = rand() % xLen;
+                int ty = rand() % yLen;
+                if (field[tx][ty] == -1){
+                    bots[i].number = i;
+                    field[tx][ty] = i;
+                    bots[i].x = tx;
+                    bots[i].y = ty;
+                    done = true;
+                }
+            }
+        }
+    }
+};
+
+
+class WindowField{
+public:
+    sf::RectangleShape ghost;//s[MBA];
+    int pixel_size;
+    int indent;
+    int olt; //OutlineThickness
+    
+    WindowField(int pixel_size, int outline_thickness){
+        this->pixel_size = pixel_size;
+        olt = outline_thickness;
+        indent = pixel_size/2;
+        ghost = sf::RectangleShape(sf::Vector2f(pixel_size - olt*2, pixel_size - olt*2));
+    }
+    
+    void draw(sf::RenderWindow *window, World world){
+        for (int i = 0; i < world.lbn; i++) {
+            int wx = indent + pixel_size * world.bots[i].x;
+            int wy = indent + pixel_size * world.bots[i].y;
+            ghost.setPosition(wx, wy);
+            ghost.setOutlineThickness(olt);
+            ghost.setFillColor(sf::Color::Yellow);
+            ghost.setOutlineColor(sf::Color(82, 82, 82));
+            window->draw(ghost);
+        }
+        
+        for (int y = 0; y < yLen; y++){
+            for (int x = 0; x < yLen; x++){
+                if (world.field[y][x] == -2){
+                    int wx = indent + pixel_size * x;
+                    int wy = indent + pixel_size * y;
+                    ghost.setPosition(wx, wy);
+                    ghost.setFillColor(sf::Color(202, 202, 202));
+                    ghost.setOutlineColor(bgColor);
+                    window->draw(ghost);
+                }
             }
         }
     }
@@ -199,10 +234,11 @@ void set_text_settings(sf::Text *text, sf::Font *font, int size, sf::Color color
 
 
 std::string get_debug_info(World world){
-    std::string str = "World, iteration " + std::to_string(iteration) + "\n";
+    std::string str = "World iteration " + std::to_string(iteration) + "\n";
     str += "Bot Amount = " + std::to_string(world.ba) + "\n";
-    char buf[10];
-    /*for (int i = 0; i < line.settings.n; i++){
+    str += "Last Bot Number = " + std::to_string(world.lbn) + "\n";
+    /*char buf[100];
+    for (int i = 0; i < line.settings.n; i++){
         int res = snprintf(buf, sizeof(buf), \
                            "zln[%02.d] x = %4.d y = %4.d xn = %6.3f yn = %6.3f a = %6.3f\n", \
                            i, int(line.ghost[i].x), int(line.ghost[i].y), line.ghost[i].xn, \
@@ -214,20 +250,20 @@ std::string get_debug_info(World world){
             break;
         }
     }*/
-    
-    for (int i = 0; i < world.yLen; i++){
-        for (int j = 0; j < world.yLen; j++){
-            int ind = world.field[i][j];
+    for (int x = 0; x < xLen; x++){
+        for (int y = 0; y < yLen; y++){
+            int ind = world.field[x][y];
             switch (ind){
-                case 0:
+                case -1:
                     str += " -- ";
                     break;
-                case -1:
+                case -2:
                     str += " xx ";
                     break;
                 default:
-                    sprintf(buf, "%3.d ", world.bots[ind].energy);
-                    str += buf;
+                    std::string tmps = std::to_string(world.bots[ind].energy);
+                    int sc = 4 - (int)tmps.length();
+                    str += (sc > 1 ? " " : "") + tmps + (sc > 0 ? " " : "");
                     break;
             }
         }
@@ -245,9 +281,8 @@ int main(){
     sf::Text text;
     sf::Font font;
     set_text_settings(&text, &font, 30, sf::Color::Green);
-    
-    World world;
-    
+    World world(20);
+    WindowField winfld(40, 2);
     
     while(window.isOpen()){
         sf::Event event;
@@ -263,9 +298,8 @@ int main(){
         
         iteration ++;
         window.clear();
-        
         world.bots_act();
-        
+        //winfld.draw(&window, world);    //   BUG !!!
         if (debug){
             text.setString(get_debug_info(world));
             window.draw(text);
@@ -278,22 +312,11 @@ int main(){
 
 
 int main_set_test(){
-    /*std::set<Bot> a;
-    Bot bot1(12), bot2;
-    a.insert(bot1);
-    a.insert(bot2);
-    std::cout << "Set Size = " << a.size() << std::endl;
-    for (std::set<Bot>::iterator it = a.begin(); it != a.end(); it++){
-        std::cout << " " << it->birthday;
-    }
-    std::cout << "\n";*/
-    
     std::set<int> free_indexes;
     free_indexes.insert(4);
     free_indexes.insert(5);
     free_indexes.insert(6);
     free_indexes.erase(free_indexes.begin());
     std::cout << freeindex << "\n";
-    
     return 0;
 }
