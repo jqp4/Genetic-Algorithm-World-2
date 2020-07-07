@@ -6,17 +6,21 @@
 //  Copyright © 2020  Gleb. All rights reserved.
 //
 
+//https://en.cppreference.com/w/cpp/language/operator_comparison
+
 #include <SFML/Graphics.hpp>
 #include <iostream>
 #include <cstdlib>
+#include <vector>
 #include <ctime>
 #include <cmath>
+#include <set>
 
 const int width   = 2100;
 const int height  = 1400;
 const int xcenter = width/2;
 const int ycenter = height/2;
-const int CA/*commandAmount*/ = 64;
+const int CA/*commandAmount*/ = 3;//64;
 #define rca (rand() % CA)
 const bool debug = true;
 int iteration = 0;
@@ -25,19 +29,24 @@ int iteration = 0;
 class Bot{
 public:
     int genome[CA];
+    int birthday;
     int pointer;
     
-    Bot(){
+    Bot(int global_iter){
         pointer = 0;
+        birthday = global_iter;
         for (int i = 0; i < CA; i++){
             genome[i] = rca;
         }
     }
     
-    void mutation(){
-        //std::cout << "\n" << rand() << "\n";
-        genome[rca] = rca;
-    }
+    void mutation(){ genome[rca] = rca; }
+    
+    bool operator <  (const Bot &b) const { return birthday <  b.birthday; } //true; }
+    bool operator >  (const Bot &b) const { return birthday >  b.birthday; } //true; }
+    bool operator == (const Bot &b) const { return birthday == b.birthday; } //true; }
+    bool operator <= (const Bot &b) const { return birthday <= b.birthday; } //true; }
+    bool operator >= (const Bot &b) const { return birthday >= b.birthday; } //true; }
 };
 
 
@@ -47,15 +56,20 @@ public:
     static const int yLen = 20;
     static const int MBA/*maxBotAmount*/ = xLen * yLen;
     int field[yLen][xLen];
-    Bot bots[MBA];
+    //Bot bots[MBA];
     int ba/*BotAmount*/;
+    
     class ActsOfBot{
         
     } aof;
     
     World(){
         ba = 10;
-        
+        for (int i = 0; i < yLen; i++){
+            for (int j = 0; j < xLen; j++){
+                field[i][j] = 0;
+            }
+        }
     }
     
     std::string get_info(){
@@ -103,7 +117,7 @@ std::string get_debug_info(){
 }
 
 
-int main(){
+int _main(){
     srand(static_cast<unsigned int>(time(nullptr))); 
     sf::ContextSettings settings;
     settings.antialiasingLevel = 8;
@@ -146,5 +160,19 @@ int main(){
         window.display();
         sf::sleep(sf::milliseconds(15));
     }
+    return 0;
+}
+
+
+int main(){
+    std::set<Bot> a;
+    Bot bot1(13), bot2(12);
+    a.insert(bot1);
+    a.insert(bot2);
+    std::cout << "Set Size = " << a.size() << std::endl;
+    for (std::set<Bot>::iterator it = a.begin(); it != a.end(); it++){
+        std::cout << " " << it->birthday;
+    }
+    std::cout << "\n";
     return 0;
 }
