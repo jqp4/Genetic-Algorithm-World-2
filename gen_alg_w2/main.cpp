@@ -18,16 +18,11 @@
 
 const int width   = 2100;
 const int height  = 1400;
-const int xcenter = width/2;
-const int ycenter = height/2;
 const int CA/*commandAmount*/ = 8;//64;
 #define rca (rand() % CA)
 #define freeindex (*free_indexes.begin())
 const bool debug = true;
 int iteration = 0;
-
-
-
 
 
 class World{
@@ -37,17 +32,18 @@ public:
     static const int MBA  = xLen * yLen; //maxBotAmount
     int field[yLen][xLen],  ba; //BotAmount
     std::set<int> free_indexes;
-    static struct Parameters{
-        int fotosintesis_energy = 20;
-        int max_energy = 512;
-    } param;
-    
+    int fotosintesis_energy = 20;
+    int max_energy = 512;
+    int energy_perit = 10;
+
+        
     class Bot{
     public:
         int genome[CA];
         int birthday;
         int pointer;
         int energy;
+        int number;
         int x, y;
         
         Bot(int global_iter = -1){
@@ -84,42 +80,42 @@ public:
         //directoin:  6 7 0
         //            5   1
         //            4 3 2
-        switch (direction) {
+        switch (direction){
             case 0:
-                tx = (xLen + tx + 1) % xLen;
-                ty = (xLen + ty - 1) % xLen;
+                tx = (tx + 1) % xLen;
+                ty = (yLen + ty - 1) % yLen;
                 break;
             case 1:
-                tx = (xLen + tx + 1) % xLen;
+                tx = (tx + 1) % xLen;
                 break;
             case 2:
-                tx = (xLen + tx + 1) % xLen;
-                ty = (xLen + ty + 1) % xLen;
+                tx = (tx + 1) % xLen;
+                ty = (ty + 1) % yLen;
                 break;
             case 3:
-                ty = (xLen + ty + 1) % xLen;
+                ty = (ty + 1) % yLen;
                 break;
             case 4:
                 tx = (xLen + tx - 1) % xLen;
-                ty = (xLen + ty + 1) % xLen;
+                ty = (ty + 1) % yLen;
                 break;
             case 5:
                 tx = (xLen + tx - 1) % xLen;
                 break;
             case 6:
                 tx = (xLen + tx - 1) % xLen;
-                ty = (xLen + ty - 1) % xLen;
+                ty = (yLen + ty - 1) % yLen;
                 break;
             case 7:
-                ty = (xLen + ty - 1) % xLen;
+                ty = (yLen + ty - 1) % yLen;
                 break;
             default:
                 return false;
         }
         
-        if (field[tx][ty] == 0){
-            field[tx][ty] = i;
-            field[bots[i].x][bots[i].y] = 0;
+        if (field[ty][tx] == 0){
+            field[bots[i].y][bots[i].x] = 0;
+            field[ty][tx] = i;
             bots[i].x = tx;
             bots[i].y = ty;
             return true;
@@ -129,11 +125,19 @@ public:
     }
     
     bool bot__fotosintesis(int i){
-        bots[i].energy = (bots[i].energy + param.fotosintesis_energy) % param.max_energy;
+        bots[i].energy = (bots[i].energy + fotosintesis_energy) % max_energy;
         return true;
     }
     
-    bool bots_act(int i){
+    bool bot__die(int i){
+        field[bots[i].y][bots[i].x] = -1;
+        bots[i] = bots[ba - 1];
+        ba--;
+        free_indexes.insert(i);
+        return true;
+    }
+    
+    bool bots_act(){
         for (int i = 0; i < ba; i++){
             int p = bots[i].pointer;
             int act = bots[i].genome[p];
@@ -150,11 +154,15 @@ public:
                     bots[i].pointer = (p + act) % CA;
                     break;
             }
+            bots[i].energy -= energy_perit;
+            if (bots[i].energy <= 0){
+                bot__die(i);
+            }
         }
         return true;
     }
     
-    World(int bot_amount = 10){
+    World(int bot_amount = 50){
         ba = bot_amount;
         for (int i = ba; i < MBA; i++){
             free_indexes.insert(i);
@@ -167,8 +175,9 @@ public:
         for (int i = 0; i < ba; i++){
             int tx = rand() % xLen;
             int ty = rand() % yLen;
-            if (field[tx][ty] == 0){
-                field[tx][ty] = i;
+            if (field[ty][tx] == 0){
+                bots[i].number = i;
+                field[ty][tx] = i;
                 bots[i].x = tx;
                 bots[i].y = ty;
             }
@@ -191,7 +200,8 @@ void set_text_settings(sf::Text *text, sf::Font *font, int size, sf::Color color
 
 std::string get_debug_info(World world){
     std::string str = "World, iteration " + std::to_string(iteration) + "\n";
-    char buf[20];
+    str += "Bot Amount = " + std::to_string(world.ba) + "\n";
+    char buf[10];
     /*for (int i = 0; i < line.settings.n; i++){
         int res = snprintf(buf, sizeof(buf), \
                            "zln[%02.d] x = %4.d y = %4.d xn = %6.3f yn = %6.3f a = %6.3f\n", \
@@ -204,11 +214,24 @@ std::string get_debug_info(World world){
             break;
         }
     }*/
-    int res = snprintf(buf, sizeof(buf), "Bot Amount = %d", world.ba);
-    if (res >= 0 && res < sizeof(buf)){
-        str += buf;
-    } else {
-        str = "FORMAT ERROR";
+    
+    for (int i = 0; i < world.yLen; i++){
+        for (int j = 0; j < world.yLen; j++){
+            int ind = world.field[i][j];
+            switch (ind){
+                case 0:
+                    str += " -- ";
+                    break;
+                case -1:
+                    str += " xx ";
+                    break;
+                default:
+                    sprintf(buf, "%3.d ", world.bots[ind].energy);
+                    str += buf;
+                    break;
+            }
+        }
+        str += "\n";
     }
     return str;
 }
@@ -219,10 +242,6 @@ int main(){
     sf::ContextSettings settings;
     settings.antialiasingLevel = 8;
     sf::RenderWindow window(sf::VideoMode(width, height), "Gen Alg", sf::Style::Default, settings);
-    sf::Vertex axes[] = {
-        sf::Vertex(sf::Vector2f(0, ycenter)), sf::Vertex(sf::Vector2f(width, ycenter)),
-        sf::Vertex(sf::Vector2f(xcenter, 0)), sf::Vertex(sf::Vector2f(xcenter, height))
-    };
     sf::Text text;
     sf::Font font;
     set_text_settings(&text, &font, 30, sf::Color::Green);
@@ -245,14 +264,14 @@ int main(){
         iteration ++;
         window.clear();
         
+        world.bots_act();
         
-        window.draw(axes, 4, sf::Lines);
         if (debug){
             text.setString(get_debug_info(world));
             window.draw(text);
         }
         window.display();
-        sf::sleep(sf::milliseconds(15));
+        sf::sleep(sf::milliseconds(200));
     }
     return 0;
 }
