@@ -8,6 +8,7 @@
 
 #include <SFML/Graphics.hpp>
 #include <iostream>
+#include <fstream>
 #include <cstdlib>
 #include <vector>
 #include <ctime>
@@ -17,14 +18,16 @@
 
 const int width  = 2100;
 const int height = 1400;
-const int xLen = 80;
+const int xLen = 50;
 const int yLen = 50;
 const int MBA  = xLen * yLen; //maxBotAmount
-const int CA   = 32;//64; //commandAmount
+const int CA   = 64; //commandAmount
 #define rca (rand() % CA)
 #define freeindex (*free_indexes.begin())
-const sf::Color bgColor = sf::Color::Black;
-const int debug = 2; // 0 - none, 1 - text, 2 - field
+const sf::Color bgColor = sf::Color::White;
+const sf::Color frameColor = sf::Color(100, 100, 100);
+std::string savePath = "/Users/gleb/Projects/C++/SFML/Genetic-Algorithm-World-2/gen_alg_w2/saves/";
+int debug = 2; // 0 - none, 1 - text, 2 - field
 int iteration = 0;
 
 
@@ -38,14 +41,16 @@ public:
     //    0..MBA - 1  bot (id)
     std::set<int> free_indexes;
     int fotosintesis_energy = 20;
+    int organics_energy = 50;
+    int energy_perit = 1;
     int max_energy = 950;
-    int energy_perit = 10;
-
+    
     class Bot{
     public:
         int genome[CA];
         //int birthday;
         int pointer;
+        int direction_look; // 0..8
         int energy;
         int number;
         bool alive;
@@ -56,6 +61,7 @@ public:
             pointer = 0;
             energy  = 100;
             alive   = true;
+            direction_look = rand() % 8;
             color   = sf::Color::Red;
             for (int i = 0; i < CA; i++){
                 genome[i] = rca;
@@ -71,68 +77,163 @@ public:
         void mutation(){
             genome[rca] = rca;
         }
+        
+        void filesave(std::string filename){
+            std::ofstream file;
+            file.open(savePath + filename);
+            if (file.is_open()){
+                int j = 0;
+                for (int i = 0; i < CA; i++){
+                    std::string sgi = std::to_string(genome[i]);
+                    file << ((int)sgi.length() < 2 ? " " : "") + sgi + " ";
+                    if (++j == 8){
+                        file << "\n";
+                        j = 0;
+                    }
+                }
+                file.close();
+            } else {
+                std::cout << "ERROR in World::Bot::filesave - Unable to open file";
+            }
+        }
+        
+        void fileread(std::string filename){
+            std::string line;
+            std::ifstream file;
+            file.open(savePath + filename);
+            if (file.is_open()){
+                int x, i = 0;
+                int command = -1;
+                while (getline (file, line)){
+                    while (line.length() > 0){
+                        x = (int)line[0] - 48;
+                        while (0 <= x && x <= 9){
+                            if (command == -1) command = x;
+                            else command = command * 10 + x;
+                            line.erase(0, 1);
+                            x = (int)line[0] - 48;
+                        }
+                        if (command != -1){
+                            genome[i++] = command;
+                            command = -1;
+                        } else {
+                            line.erase(0, 1);
+                        }
+                    }
+                }
+                file.close();
+            } else {
+                std::cout << "ERROR in World::Bot::fileread - Unable to open file";
+            }
+        }
     } bots[MBA];
     
-    int  bot__move(int i, int direction){
-        int tx = bots[i].x;
-        int ty = bots[i].y;
+    void get_direction_coords(int *x, int *y, int direction){
         //directoin:  6 7 0
         //            5   1
         //            4 3 2
         switch (direction){
             case 0:
-                tx = (tx + 1) % xLen;
-                ty = (yLen + ty - 1) % yLen;
+                *x = (*x + 1) % xLen;
+                *y = (yLen + *y - 1) % yLen;
                 break;
             case 1:
-                tx = (tx + 1) % xLen;
+                *x = (*x + 1) % xLen;
                 break;
             case 2:
-                tx = (tx + 1) % xLen;
-                ty = (ty + 1) % yLen;
+                *x = (*x + 1) % xLen;
+                *y = (*y + 1) % yLen;
                 break;
             case 3:
-                ty = (ty + 1) % yLen;
+                *y = (*y + 1) % yLen;
                 break;
             case 4:
-                tx = (xLen + tx - 1) % xLen;
-                ty = (ty + 1) % yLen;
+                *x = (xLen + *x - 1) % xLen;
+                *y = (*y + 1) % yLen;
                 break;
             case 5:
-                tx = (xLen + tx - 1) % xLen;
+                *x = (xLen + *x - 1) % xLen;
                 break;
             case 6:
-                tx = (xLen + tx - 1) % xLen;
-                ty = (yLen + ty - 1) % yLen;
+                *x = (xLen + *x - 1) % xLen;
+                *y = (yLen + *y - 1) % yLen;
                 break;
             case 7:
-                ty = (yLen + ty - 1) % yLen;
+                *y = (yLen + *y - 1) % yLen;
                 break;
             default:
-                return -3; // return error
+                *x = *y = -1; // return error
         }
-        int res = field[tx][ty];
-        if (res == -1){
+    }
+    
+    int  bot__look(int i, int rd){
+        int tx = bots[i].x;
+        int ty = bots[i].y;
+        //direction = (bots[i].direction_look + relative_direction) % 8;
+        get_direction_coords(&tx, &ty, (bots[i].direction_look + rd) % 8);
+        return field[tx][ty];
+    }
+    
+    int  bot__move(int i, int rd){
+        int tx = bots[i].x;
+        int ty = bots[i].y;
+        //direction = (bots[i].direction_look + relative_direction) % 8;
+        get_direction_coords(&tx, &ty, (bots[i].direction_look + rd) % 8);
+        int obj = field[tx][ty];
+        if (obj == -1){
             field[bots[i].x][bots[i].y] = -1;
             field[tx][ty] = i;
             bots[i].x = tx;
             bots[i].y = ty;
         }
-        return res;
+        return obj;
     }
     
     void bot__fotosintesis(int i){
-        bots[i].energy = (bots[i].energy + fotosintesis_energy);
+        bots[i].energy = bots[i].energy + fotosintesis_energy;
         if (bots[i].energy > max_energy){
             bots[i].energy = max_energy + energy_perit;
         }
     }
     
-    void bot__die(int i){
-        field[bots[i].x][bots[i].y] = -2;
+    void bot__rotate(int i, int angel8){
+        bots[i].direction_look = (bots[i].direction_look + angel8) % 8;
+    }
+    
+    bool bot__energy_check(int i, int factor){
+        int cmp_energy = 15 * factor;
+        if (bots[i].energy >= cmp_energy){
+            return true;
+        }
+        return false;
+    }
+    
+    void bot__die(int i, bool kill = false){
+        //field[bots[i].x][bots[i].y] = -2;
+        field[bots[i].x][bots[i].y] = kill ? -1 : -2;
         bots[i].alive = false;
         ba--;
         free_indexes.insert(i);
+    }
+    
+    void bot__eat(int i, int rd){
+        int tx = bots[i].x;
+        int ty = bots[i].y;
+        //direction = (bots[i].direction_look + relative_direction) % 8;
+        get_direction_coords(&tx, &ty, (bots[i].direction_look + rd) % 8);
+        int obj = field[tx][ty];
+        if (obj == -2){
+            bots[i].energy = bots[i].energy + organics_energy;
+            field[tx][ty] = -1;
+        } else if (obj == -1){
+            //pass
+        } else if (obj >= 0){
+            bots[i].energy = bots[i].energy + organics_energy + bots[obj].energy/10;
+            bot__die(obj, true);
+        }
+        if (bots[i].energy > max_energy){
+            bots[i].energy = max_energy + energy_perit;
+        }
     }
     
     void bots_act(){
@@ -140,28 +241,54 @@ public:
             if (bots[i].alive){
                 int p = bots[i].pointer;
                 int act = bots[i].genome[p];
-                int res;
+                int ires;
+                bool bres;
                 switch (act) {
+                    case 23:
+                        bot__rotate(i, bots[i].genome[p + 1]);
+                        bots[i].pointer = (p + 2) % CA;
+                        break;
                     case 25:
                         bot__fotosintesis(i);
                         bots[i].pointer = (p + 1) % CA;
                         break;
                     case 26:
-                        res = bot__move(i, bots[i].genome[p + 1] % 8);
-                        if (res == -3){
-                            printf("\nact %d MOVE ERROR\n", act);
+                        ires = bot__move(i, bots[i].genome[p + 1]);
+                        if (ires == -3){
+                            printf("\nbot %d act %d MOVE ERROR\n", i, act);
                             bots[i].pointer = (p + 1) % CA;
-                        } else if (res == -2){
+                        } else if (ires == -2){
                             bots[i].pointer = (p + bots[i].genome[p + 3]) % CA;
-                        } else if (res == -1){
+                        } else if (ires == -1){
                             bots[i].pointer = (p + bots[i].genome[p + 2]) % CA;
-                        } else if (res >= 0){
+                        } else if (ires >= 0){
                             bots[i].pointer = (p + bots[i].genome[p + 4]) % CA;
                         } else {
-                            printf("\nact %d BOT ID ERROR\n", act);
+                            printf("\nbot %d act %d BOT ID ERROR\n", i, act);
                             bots[i].pointer = (p + 1) % CA;
                         }
-                        //bots[i].pointer = (p + 2) % CA;
+                        break;
+                    case 28:
+                        bot__eat(i, bots[i].genome[p + 1]);
+                        bots[i].pointer = (p + 2) % CA;
+                        break;
+                    case 30:
+                        ires = bot__look(i, bots[i].genome[p + 1]);
+                        if (ires == -2){
+                            bots[i].pointer = (p + bots[i].genome[p + 3]) % CA;
+                        } else if (ires == -1){
+                            bots[i].pointer = (p + bots[i].genome[p + 2]) % CA;
+                        } else if (ires >= 0){
+                            bots[i].pointer = (p + bots[i].genome[p + 4]) % CA;
+                        }
+                        break;
+                    case 38:
+                        bres = bot__energy_check(i, bots[i].genome[p + 1]);
+                        if (bres){
+                            bots[i].pointer = (p + bots[i].genome[p + 3]) % CA;
+                        } else {
+                            bots[i].pointer = (p + bots[i].genome[p + 2]) % CA;
+                        }
                         break;
                     default:
                         bots[i].pointer = (p + act) % CA;
@@ -211,20 +338,47 @@ public:
     int indent;
     int olt; //OutlineThickness
     
+    class BackgroundPicture{
+    public:
+        static const int qn = 2;
+        sf::RectangleShape quads[qn];
+        
+        BackgroundPicture(){}
+        
+        BackgroundPicture(int pixel_size, int indent){
+            //int wx = indent + pixel_size * xLen;
+            //int wy = indent + pixel_size * yLen;
+            quads[0].setSize(sf::Vector2f(pixel_size * xLen, pixel_size * yLen));
+            quads[0].setPosition(indent, indent);
+            quads[0].setOutlineThickness(indent);
+            quads[0].setOutlineColor(frameColor);
+            quads[0].setFillColor(bgColor);
+            
+        }
+        
+        void draw(sf::RenderWindow *window){
+            for (int i = 0; i < qn; i++){
+                window->draw(quads[i]);
+            }
+        }
+    } bgpic;
+    
     WindowField(int pixel_size, int outline_thickness){
         this->pixel_size = pixel_size;
         olt = outline_thickness;
         indent = pixel_size/2;
+        bgpic = BackgroundPicture(pixel_size, indent);
         ghost = sf::RectangleShape(sf::Vector2f(pixel_size - olt*2, pixel_size - olt*2));
         ghost.setOutlineThickness(olt);
     }
     
     void draw(sf::RenderWindow *window, World world, sf::Text text){
+        bgpic.draw(window);
         for (int x = 0; x < xLen; x++){
             for (int y = 0; y < yLen; y++){
                 int i = world.field[x][y];
-                int wx = indent + pixel_size * x;
-                int wy = indent + pixel_size * y;
+                int wx = indent + olt + pixel_size * x;
+                int wy = indent + olt + pixel_size * y;
                 switch (i){
                     case -1:
                         //pass
@@ -250,7 +404,7 @@ public:
                         window->draw(ghost);
                         if (debug == 2){
                             text.setString(std::to_string(world.bots[i].energy));
-                            text.setFillColor(sf::Color::White);
+                            text.setFillColor(sf::Color::Black);
                             text.setPosition(wx - 2, wy - 9);
                             window->draw(text);
                         }
@@ -318,7 +472,7 @@ World::Bot custom_bot(int number){
     World::Bot bot;
     switch (number) {
         case 0: {
-            int custom_genome[] = {25, 25, CA - 2};
+            int custom_genome[] = { 25, 25, CA - 2 };
             int i = sizeof(custom_genome)/sizeof(int);
             while (i--) bot.genome[i] = custom_genome[i];
             break;
@@ -327,6 +481,20 @@ World::Bot custom_bot(int number){
                                     25, 25, 26, 2, CA - 2, 5, 5, \
                                     25, 25, 26, 4, CA - 2, 5, 5, \
                                     25, 25, 26, 6, CA - 2, CA - 23, CA - 23 };
+            int i = sizeof(custom_genome)/sizeof(int);
+            while (i--) bot.genome[i] = custom_genome[i];
+            break;
+        } case 2: {
+            int custom_genome[] = { 25, 25, 26, 0, CA - 2, 5, 5, \
+                                    25, 25, 23, 1, CA - 10 };
+            int i = sizeof(custom_genome)/sizeof(int);
+            while (i--) bot.genome[i] = custom_genome[i];
+            break;
+        } case 3: {
+            int custom_genome[] = { 25, 23, 1, 30, 0, 5, 12, 12, \
+                                    38, 1, 5, CA - 11, \
+                                    25, 25, CA - 14, \
+                                    28, 0, CA - 17 };
             int i = sizeof(custom_genome)/sizeof(int);
             while (i--) bot.genome[i] = custom_genome[i];
             break;
@@ -347,10 +515,11 @@ int main(){
     sf::Text text;
     sf::Font font;
     set_text_settings(&text, &font, 30, sf::Color::Green);
-    World world(100);
+    World world(200);
     WindowField winfld(26, 2);
-    world.bots[0].copy_genome(custom_bot(1));
-    
+    //world.bots[0].copy_genome(custom_bot(2));
+    //world.bots[0].filesave("test.txt");
+    world.bots[0].fileread("cbg2.txt");
     
     while(window.isOpen()){
         sf::Event event;
@@ -365,15 +534,18 @@ int main(){
         }
         
         iteration ++;
-        window.clear();
         world.bots_act();
-        winfld.draw(&window, world, text);
-        if (debug == 1){
-            text.setString(get_debug_info(world));
-            window.draw(text);
+        if (iteration % 2 == 0){
+            window.clear();
+            //world.bots_act();
+            winfld.draw(&window, world, text);
+            if (debug == 1){
+                text.setString(get_debug_info(world));
+                window.draw(text);
+            }
+            window.display();
+            sf::sleep(sf::milliseconds(40));
         }
-        window.display();
-        sf::sleep(sf::milliseconds(100));
     }
     return 0;
 }
