@@ -30,7 +30,6 @@ int debug = 0; // 0 - none, 1 - text, 2 - field
 int iteration = 0;
 
 
-
 class World{
 public:
     int field[xLen][yLen], ba, lbn; //botAmount, lastBotNumber
@@ -39,10 +38,15 @@ public:
     //        -1      free
     //    0..MBA - 1  bot (id)
     std::set<int> free_indexes;
+    //constexpr static const float mutation_probability = 10 / 100;
+    static const int mutation_probability = 20;
+    static const int birth_energy = 70;
+    int cell_division_energy = 20;
     int fotosintesis_energy = 20;
     int organics_energy = 50;
     int energy_perit = 2;
     int max_energy = 950;
+    
     
     class Bot{
     public:
@@ -58,12 +62,31 @@ public:
         
         Bot(){
             pointer = 0;
-            energy  = 100;
+            energy  = birth_energy * 2;
             alive   = true;
-            direction_look = rand() % 8;
             color   = sf::Color::Red;
+            direction_look = rand() % 8;
             for (int i = 0; i < CA; i++){
                 genome[i] = rca;
+            }
+        }
+        
+        void mutation(){
+            genome[rca] = rca;
+        }
+        
+        void birth(Bot parent){
+            pointer = 0;
+            energy  = birth_energy;
+            alive   = true;
+            color   = sf::Color::Red;
+            direction_look = rand() % 8;
+            for (int i = 0; i < CA; i++){
+                genome[i] = parent.genome[i];
+            }
+            if (rand() % 100 < mutation_probability){
+                //mutation();
+                genome[rca] = rca;
             }
         }
         
@@ -71,10 +94,6 @@ public:
             for (int i = 0; i < CA; i++){
                 genome[i] = a.genome[i];
             }
-        }
-        
-        void mutation(){
-            genome[rca] = rca;
         }
         
         void filesave(std::string filename){
@@ -248,6 +267,32 @@ public:
         }
     }
     
+    bool bot__division(int i, int rd){
+        if (bots[i].energy >= cell_division_energy + birth_energy * 2){
+            if (free_indexes.size() > 0){
+                int tx = bots[i].x;
+                int ty = bots[i].y;
+                get_direction_coords(&tx, &ty, (bots[i].direction_look + rd) % 8);
+                int obj = field[tx][ty];
+                if (obj == -1){
+                    int j = freeindex;
+                    bots[j].birth(bots[i]);
+                    bots[i].energy -= cell_division_energy + birth_energy;
+                    field[tx][ty] = j;
+                    bots[j].x = tx;
+                    bots[j].y = ty;
+                    free_indexes.erase(free_indexes.begin());
+                    ba++;
+                    if (lbn < ba){
+                        lbn++;
+                    }
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
     void bots_act(){
         for (int i = 0; i < lbn; i++){
             if (bots[i].alive){
@@ -295,6 +340,14 @@ public:
                                 bots[i].pointer = (p + bots[i].genome[p + 2]) % CA;
                             } else if (ires >= 0){
                                 bots[i].pointer = (p + bots[i].genome[p + 4]) % CA;
+                            }
+                            break;
+                        case 34:
+                            bres = bot__division(i, bots[i].genome[p + 1]);
+                            if (bres){
+                                bots[i].pointer = (p + bots[i].genome[p + 2]) % CA;
+                            } else {
+                                bots[i].pointer = (p + bots[i].genome[p + 3]) % CA;
                             }
                             break;
                         case 38:
@@ -350,8 +403,6 @@ public:
 
 class WindowField{
 public:
-    //sf::RectangleShape ghost;
-    //sf::ConvexShape convex;
     int pixel_size;
     int indent;
     int olt; //OutlineThickness
@@ -360,7 +411,6 @@ public:
     public:
         static const int qn = 2;
         sf::RectangleShape quads[qn];
-        
         
         BackgroundPicture(){}
         
@@ -387,6 +437,7 @@ public:
         sf::RectangleShape bot;
         sf::RectangleShape organics;
         sf::ConvexShape custom;
+        
         Ghost(){}
         
         Ghost(int ps, int olt){
@@ -406,7 +457,6 @@ public:
             custom.setFillColor(sf::Color::Black);
         }
     } ghost;
-    
     
     WindowField(int pixel_size, int outline_thickness){
         this->pixel_size = pixel_size;
@@ -535,7 +585,6 @@ void custom_bot(World::Bot *bot, int number){
 }
 
 
-
 int main(){
     srand(static_cast<unsigned int>(time(nullptr))); 
     sf::ContextSettings settings;
@@ -544,9 +593,9 @@ int main(){
     sf::Text text;
     sf::Font font;
     set_text_settings(&text, &font, 30, sf::Color::Green);
-    World world(100);
+    World world(30);
     WindowField winfld(26, 2);
-    custom_bot(&world.bots[0], 4);
+    custom_bot(&world.bots[0], 5);
     //world.bots[0].filesave("test.txt");
     //world.bots[0].fileread("custom_bots/cbg1.txt");
     
@@ -563,7 +612,7 @@ int main(){
         }
         
         iteration ++;
-        //world.bots_act();
+        world.bots_act();
         if (iteration % 1 == 0){
             window.clear();
             //world.bots_act();
@@ -573,9 +622,9 @@ int main(){
                 window.draw(text);
             }
             window.display();
-            sf::sleep(sf::milliseconds(20));
+            sf::sleep(sf::milliseconds(40));
         }
-        world.bots_act();
+        //world.bots_act();
     }
     return 0;
 }
