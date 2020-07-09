@@ -23,6 +23,7 @@ const int MBA  = xLen * yLen; //maxBotAmount
 const int CA   = 64; //commandAmount
 #define rca (rand() % CA)
 #define freeindex (*free_indexes.begin())
+#define check_availability(x, y, tx, ty) (field[tx][y] == -1 || field[x][ty] == -1)
 const sf::Color bgColor = sf::Color::White;
 const sf::Color frameColor = sf::Color(100, 100, 100);
 std::string savePath = "/Users/gleb/Projects/C++/SFML/Genetic-Algorithm-World-2/gen_alg_w2/saves/";
@@ -159,9 +160,9 @@ public:
         }
     } bots[MBA];
     
-    sf::Color get_bot_color(int i/*, char mode = 'd'*/){
+    sf::Color get_bot_color(int i){
         int xc;
-        switch (showMode/*mode*/){
+        switch (showMode){
             case 'e':
                 xc = 250 - (int)((float)bots[i].energy / max_energy * 150);
                 return sf::Color(255, xc, 0);
@@ -287,26 +288,32 @@ public:
         }
     }
     
+    /*bool check_availability(int x, int y, int tx, int ty){
+        return field[tx][y] == -1 || field[x][ty] == -1;
+    }*/
+    
     bool bot__division(int i, int rd){
         if (bots[i].energy >= cell_division_energy + birth_energy * 2){
             if (free_indexes.size() > 0){
                 int tx = bots[i].x;
                 int ty = bots[i].y;
                 get_direction_coords(&tx, &ty, (bots[i].direction_look + rd) % 8);
-                int obj = field[tx][ty];
-                if (obj == -1){
-                    int j = freeindex;
-                    bots[j].birth(bots[i]);
-                    bots[i].energy -= cell_division_energy + birth_energy;
-                    field[tx][ty] = j;
-                    bots[j].x = tx;
-                    bots[j].y = ty;
-                    free_indexes.erase(free_indexes.begin());
-                    ba++;
-                    if (lbn < ba){
-                        lbn++;
+                if (check_availability(bots[i].x, bots[i].y, tx, ty)){
+                    int obj = field[tx][ty];
+                    if (obj == -1){
+                        int j = freeindex;
+                        bots[j].birth(bots[i]);
+                        bots[i].energy -= cell_division_energy + birth_energy;
+                        field[tx][ty] = j;
+                        bots[j].x = tx;
+                        bots[j].y = ty;
+                        free_indexes.erase(free_indexes.begin());
+                        ba++;
+                        if (lbn < ba){
+                            lbn++;
+                        }
+                        return true;
                     }
-                    return true;
                 }
             }
         }
