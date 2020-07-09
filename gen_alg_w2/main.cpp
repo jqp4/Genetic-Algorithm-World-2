@@ -10,7 +10,6 @@
 #include <iostream>
 #include <fstream>
 #include <cstdlib>
-#include <vector>
 #include <ctime>
 #include <cmath>
 #include <set>
@@ -18,7 +17,7 @@
 
 const int width  = 2100;
 const int height = 1400;
-const int xLen = 50;
+const int xLen = 50; //97
 const int yLen = 50;
 const int MBA  = xLen * yLen; //maxBotAmount
 const int CA   = 64; //commandAmount
@@ -27,7 +26,7 @@ const int CA   = 64; //commandAmount
 const sf::Color bgColor = sf::Color::White;
 const sf::Color frameColor = sf::Color(100, 100, 100);
 std::string savePath = "/Users/gleb/Projects/C++/SFML/Genetic-Algorithm-World-2/gen_alg_w2/saves/";
-int debug = 2; // 0 - none, 1 - text, 2 - field
+int debug = 0; // 0 - none, 1 - text, 2 - field
 int iteration = 0;
 
 
@@ -42,7 +41,7 @@ public:
     std::set<int> free_indexes;
     int fotosintesis_energy = 20;
     int organics_energy = 50;
-    int energy_perit = 1;
+    int energy_perit = 2;
     int max_energy = 950;
     
     class Bot{
@@ -107,17 +106,30 @@ public:
                 while (getline (file, line)){
                     while (line.length() > 0){
                         x = (int)line[0] - 48;
-                        while (0 <= x && x <= 9){
-                            if (command == -1) command = x;
-                            else command = command * 10 + x;
-                            line.erase(0, 1);
-                            x = (int)line[0] - 48;
-                        }
-                        if (command != -1){
-                            genome[i++] = command;
+                        if (x == -12){
+                            // line[0] = '$'
+                            command = (int)line[1] - 48;
+                            x = (int)line[2] - 48;
+                            if (0 <= x && x <= 9){
+                                command = command * 10 + x;
+                            }
+                            genome[i++] = CA - command;
                             command = -1;
+                            line.erase(0, 3);
                         } else {
-                            line.erase(0, 1);
+                            while (0 <= x && x <= 9){
+                                // line[0] = 0, 1, ..., 9
+                                if (command == -1) command = x;
+                                else command = command * 10 + x;
+                                line.erase(0, 1);
+                                x = (int)line[0] - 48;
+                            }
+                            if (command != -1){
+                                genome[i++] = command;
+                                command = -1;
+                            } else {
+                                line.erase(0, 1);
+                            }
                         }
                     }
                 }
@@ -239,60 +251,65 @@ public:
     void bots_act(){
         for (int i = 0; i < lbn; i++){
             if (bots[i].alive){
-                int p = bots[i].pointer;
-                int act = bots[i].genome[p];
-                int ires;
-                bool bres;
-                switch (act) {
-                    case 23:
-                        bot__rotate(i, bots[i].genome[p + 1]);
-                        bots[i].pointer = (p + 2) % CA;
-                        break;
-                    case 25:
-                        bot__fotosintesis(i);
-                        bots[i].pointer = (p + 1) % CA;
-                        break;
-                    case 26:
-                        ires = bot__move(i, bots[i].genome[p + 1]);
-                        if (ires == -3){
-                            printf("\nbot %d act %d MOVE ERROR\n", i, act);
+                int steps2think = 1;
+                bool again = false;
+                while (steps2think-- + (int)again){
+                    int p = bots[i].pointer;
+                    int act = bots[i].genome[p];
+                    int ires;
+                    bool bres;
+                    switch (act) {
+                        case 23:
+                            bot__rotate(i, bots[i].genome[p + 1]);
+                            bots[i].pointer = (p + 2) % CA;
+                            break;
+                        case 25:
+                            bot__fotosintesis(i);
                             bots[i].pointer = (p + 1) % CA;
-                        } else if (ires == -2){
-                            bots[i].pointer = (p + bots[i].genome[p + 3]) % CA;
-                        } else if (ires == -1){
-                            bots[i].pointer = (p + bots[i].genome[p + 2]) % CA;
-                        } else if (ires >= 0){
-                            bots[i].pointer = (p + bots[i].genome[p + 4]) % CA;
-                        } else {
-                            printf("\nbot %d act %d BOT ID ERROR\n", i, act);
-                            bots[i].pointer = (p + 1) % CA;
-                        }
-                        break;
-                    case 28:
-                        bot__eat(i, bots[i].genome[p + 1]);
-                        bots[i].pointer = (p + 2) % CA;
-                        break;
-                    case 30:
-                        ires = bot__look(i, bots[i].genome[p + 1]);
-                        if (ires == -2){
-                            bots[i].pointer = (p + bots[i].genome[p + 3]) % CA;
-                        } else if (ires == -1){
-                            bots[i].pointer = (p + bots[i].genome[p + 2]) % CA;
-                        } else if (ires >= 0){
-                            bots[i].pointer = (p + bots[i].genome[p + 4]) % CA;
-                        }
-                        break;
-                    case 38:
-                        bres = bot__energy_check(i, bots[i].genome[p + 1]);
-                        if (bres){
-                            bots[i].pointer = (p + bots[i].genome[p + 3]) % CA;
-                        } else {
-                            bots[i].pointer = (p + bots[i].genome[p + 2]) % CA;
-                        }
-                        break;
-                    default:
-                        bots[i].pointer = (p + act) % CA;
-                        break;
+                            break;
+                        case 26:
+                            ires = bot__move(i, bots[i].genome[p + 1]);
+                            if (ires == -3){
+                                printf("\nbot %d act %d MOVE ERROR\n", i, act);
+                                bots[i].pointer = (p + 1) % CA;
+                            } else if (ires == -2){
+                                bots[i].pointer = (p + bots[i].genome[p + 3]) % CA;
+                            } else if (ires == -1){
+                                bots[i].pointer = (p + bots[i].genome[p + 2]) % CA;
+                            } else if (ires >= 0){
+                                bots[i].pointer = (p + bots[i].genome[p + 4]) % CA;
+                            } else {
+                                printf("\nbot %d act %d BOT ID ERROR\n", i, act);
+                                bots[i].pointer = (p + 1) % CA;
+                            }
+                            break;
+                        case 28:
+                            bot__eat(i, bots[i].genome[p + 1]);
+                            bots[i].pointer = (p + 2) % CA;
+                            break;
+                        case 30:
+                            ires = bot__look(i, bots[i].genome[p + 1]);
+                            if (ires == -2){
+                                bots[i].pointer = (p + bots[i].genome[p + 3]) % CA;
+                            } else if (ires == -1){
+                                bots[i].pointer = (p + bots[i].genome[p + 2]) % CA;
+                            } else if (ires >= 0){
+                                bots[i].pointer = (p + bots[i].genome[p + 4]) % CA;
+                            }
+                            break;
+                        case 38:
+                            bres = bot__energy_check(i, bots[i].genome[p + 1]);
+                            if (bres){
+                                bots[i].pointer = (p + bots[i].genome[p + 3]) % CA;
+                            } else {
+                                bots[i].pointer = (p + bots[i].genome[p + 2]) % CA;
+                            }
+                            break;
+                        default:
+                            bots[i].pointer = (p + act) % CA;
+                            again = true;
+                            break;
+                    }
                 }
                 bots[i].energy -= energy_perit;
                 if (bots[i].energy <= 0){
@@ -333,7 +350,8 @@ public:
 
 class WindowField{
 public:
-    sf::RectangleShape ghost;//s[MBA];
+    //sf::RectangleShape ghost;
+    //sf::ConvexShape convex;
     int pixel_size;
     int indent;
     int olt; //OutlineThickness
@@ -342,6 +360,7 @@ public:
     public:
         static const int qn = 2;
         sf::RectangleShape quads[qn];
+        
         
         BackgroundPicture(){}
         
@@ -363,13 +382,38 @@ public:
         }
     } bgpic;
     
+    class Ghost{
+    public:
+        sf::RectangleShape bot;
+        sf::RectangleShape organics;
+        sf::ConvexShape custom;
+        Ghost(){}
+        
+        Ghost(int ps, int olt){
+            bot = sf::RectangleShape(sf::Vector2f(ps - olt*2, ps - olt*2));
+            bot.setOutlineColor(sf::Color(82, 82, 82));
+            bot.setOutlineThickness(olt);
+            
+            organics = sf::RectangleShape(sf::Vector2f(ps - olt*2, ps - olt*2));
+            organics.setFillColor(sf::Color(202, 202, 202));
+            organics.setOutlineColor(bgColor);
+            organics.setOutlineThickness(olt);
+            
+            custom.setPointCount(3);
+            custom.setPoint(0, sf::Vector2f(ps/2, 0));
+            custom.setPoint(1, sf::Vector2f(ps, ps));
+            custom.setPoint(2, sf::Vector2f(0, ps));
+            custom.setFillColor(sf::Color::Black);
+        }
+    } ghost;
+    
+    
     WindowField(int pixel_size, int outline_thickness){
         this->pixel_size = pixel_size;
         olt = outline_thickness;
         indent = pixel_size/2;
         bgpic = BackgroundPicture(pixel_size, indent);
-        ghost = sf::RectangleShape(sf::Vector2f(pixel_size - olt*2, pixel_size - olt*2));
-        ghost.setOutlineThickness(olt);
+        ghost = Ghost(pixel_size, olt);
     }
     
     void draw(sf::RenderWindow *window, World world, sf::Text text){
@@ -385,23 +429,21 @@ public:
                         break;
                     case -2:
                         //organics
-                        ghost.setPosition(wx, wy);
-                        ghost.setFillColor(sf::Color(202, 202, 202));
-                        ghost.setOutlineColor(bgColor);
-                        window->draw(ghost);
+                        ghost.organics.setPosition(wx, wy);
+                        window->draw(ghost.organics);
                         break;
                     default:
                         //bot
-                        ghost.setPosition(wx, wy);
                         if (i == 0){
-                            // debug custom genome:
-                            //World::Bot bb = world.bots[i];
-                            ghost.setFillColor(sf::Color::Blue);
+                            //World::Bot bbb = world.bots[i]; // debug custom bot:
+                            ghost.custom.setPosition(wx, wy);
+                            //ghost.custom.setFillColor(world.bots[i].color);
+                            window->draw(ghost.custom);
                         } else {
-                            ghost.setFillColor(world.bots[i].color);
+                            ghost.bot.setPosition(wx, wy);
+                            ghost.bot.setFillColor(world.bots[i].color);
+                            window->draw(ghost.bot);
                         }
-                        ghost.setOutlineColor(sf::Color(82, 82, 82));
-                        window->draw(ghost);
                         if (debug == 2){
                             text.setString(std::to_string(world.bots[i].energy));
                             text.setFillColor(sf::Color::Black);
@@ -468,23 +510,9 @@ std::string get_debug_info(World world){
 }
 
 
-World::Bot custom_bot(int number){
-    World::Bot bot;
-    switch (number) {
-        case 0: {
-            int custom_genome[] = { 25, 25, CA - 2 };
-            int i = sizeof(custom_genome)/sizeof(int);
-            while (i--) bot.genome[i] = custom_genome[i];
-            break;
-        } case 1: {
-            int custom_genome[] = { 25, 25, 26, 0, CA - 2, 5, 5, \
-                                    25, 25, 26, 2, CA - 2, 5, 5, \
-                                    25, 25, 26, 4, CA - 2, 5, 5, \
-                                    25, 25, 26, 6, CA - 2, CA - 23, CA - 23 };
-            int i = sizeof(custom_genome)/sizeof(int);
-            while (i--) bot.genome[i] = custom_genome[i];
-            break;
-        } case 2: {
+void custom_bot(World::Bot *bot, int number){
+    /*switch (number) {
+        case 2: {
             int custom_genome[] = { 25, 25, 26, 0, CA - 2, 5, 5, \
                                     25, 25, 23, 1, CA - 10 };
             int i = sizeof(custom_genome)/sizeof(int);
@@ -501,8 +529,9 @@ World::Bot custom_bot(int number){
         }
         default:
             break;
-    }
-    return bot;
+    }*/
+    std::string filename = "custom_bots/cbg" + std::to_string(number) + ".txt";
+    bot->fileread(filename);
 }
 
 
@@ -515,11 +544,11 @@ int main(){
     sf::Text text;
     sf::Font font;
     set_text_settings(&text, &font, 30, sf::Color::Green);
-    World world(200);
+    World world(100);
     WindowField winfld(26, 2);
-    //world.bots[0].copy_genome(custom_bot(2));
+    custom_bot(&world.bots[0], 4);
     //world.bots[0].filesave("test.txt");
-    world.bots[0].fileread("cbg2.txt");
+    //world.bots[0].fileread("custom_bots/cbg1.txt");
     
     while(window.isOpen()){
         sf::Event event;
@@ -534,8 +563,8 @@ int main(){
         }
         
         iteration ++;
-        world.bots_act();
-        if (iteration % 2 == 0){
+        //world.bots_act();
+        if (iteration % 1 == 0){
             window.clear();
             //world.bots_act();
             winfld.draw(&window, world, text);
@@ -544,21 +573,9 @@ int main(){
                 window.draw(text);
             }
             window.display();
-            sf::sleep(sf::milliseconds(40));
+            sf::sleep(sf::milliseconds(20));
         }
+        world.bots_act();
     }
     return 0;
 }
-
-
-int main_set_test(){
-    std::set<int> free_indexes;
-    free_indexes.insert(4);
-    free_indexes.insert(5);
-    free_indexes.insert(6);
-    free_indexes.erase(free_indexes.begin());
-    std::cout << freeindex << "\n";
-    return 0;
-}
-
-
