@@ -17,8 +17,8 @@
 
 const int width  = 2100;
 const int height = 1400;
-const int xLen = 50; //97
-const int yLen = 50;
+const int xLen = 95; //97
+const int yLen = 95;
 const int MBA  = xLen * yLen; //maxBotAmount
 const int CA   = 64; //commandAmount
 #define rca (rand() % CA)
@@ -38,13 +38,12 @@ public:
     //        -1      free
     //    0..MBA - 1  bot (id)
     std::set<int> free_indexes;
-    //constexpr static const float mutation_probability = 10 / 100;
-    static const int mutation_probability = 20;
+    static const int mutation_probability = 50;
     static const int birth_energy = 70;
     int cell_division_energy = 20;
     int fotosintesis_energy = 20;
     int organics_energy = 50;
-    int energy_perit = 2;
+    int energy_perit = 10;
     int max_energy = 950;
     
     
@@ -158,6 +157,19 @@ public:
             }
         }
     } bots[MBA];
+    
+    sf::Color get_bot_color(int i, char mode = 'e'){
+        int xc;
+        switch (mode){
+            case 'e':
+                xc = 250 - (int)((float)bots[i].energy / max_energy * 150);
+                return sf::Color(255, xc, 0);
+                break;
+            default:
+                return sf::Color(0, 0, 0);
+                break;
+        }
+    }
     
     void get_direction_coords(int *x, int *y, int direction){
         //directoin:  6 7 0
@@ -342,7 +354,7 @@ public:
                                 bots[i].pointer = (p + bots[i].genome[p + 4]) % CA;
                             }
                             break;
-                        case 34:
+                        case 555:
                             bres = bot__division(i, bots[i].genome[p + 1]);
                             if (bres){
                                 bots[i].pointer = (p + bots[i].genome[p + 2]) % CA;
@@ -367,6 +379,12 @@ public:
                 bots[i].energy -= energy_perit;
                 if (bots[i].energy <= 0){
                     bot__die(i);
+                }
+                if (bots[i].energy >= 200){
+                    int dir = 0;
+                    while (!bot__division(i, dir) && dir < 8){
+                        dir++;
+                    }
                 }
             }
         }
@@ -484,14 +502,15 @@ public:
                         break;
                     default:
                         //bot
-                        if (i == 0){
+                        if (i </*==*/ 0){
                             //World::Bot bbb = world.bots[i]; // debug custom bot:
                             ghost.custom.setPosition(wx, wy);
                             //ghost.custom.setFillColor(world.bots[i].color);
                             window->draw(ghost.custom);
                         } else {
                             ghost.bot.setPosition(wx, wy);
-                            ghost.bot.setFillColor(world.bots[i].color);
+                            //ghost.bot.setFillColor(world.bots[i].color);
+                            ghost.bot.setFillColor(world.get_bot_color(i));
                             window->draw(ghost.bot);
                         }
                         if (debug == 2){
@@ -593,9 +612,9 @@ int main(){
     sf::Text text;
     sf::Font font;
     set_text_settings(&text, &font, 30, sf::Color::Green);
-    World world(30);
-    WindowField winfld(26, 2);
-    custom_bot(&world.bots[0], 5);
+    World world(100);
+    WindowField winfld(15, 2);
+    //custom_bot(&world.bots[0], 5);
     //world.bots[0].filesave("test.txt");
     //world.bots[0].fileread("custom_bots/cbg1.txt");
     
@@ -622,7 +641,7 @@ int main(){
                 window.draw(text);
             }
             window.display();
-            sf::sleep(sf::milliseconds(40));
+            sf::sleep(sf::milliseconds(5));
         }
         //world.bots_act();
     }
