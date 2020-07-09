@@ -17,8 +17,8 @@
 
 const int width  = 2100;
 const int height = 1400;
-const int xLen = 95; //97
-const int yLen = 95;
+const int xLen = 97;
+const int yLen = 97;
 const int MBA  = xLen * yLen; //maxBotAmount
 const int CA   = 64; //commandAmount
 #define rca (rand() % CA)
@@ -26,8 +26,8 @@ const int CA   = 64; //commandAmount
 const sf::Color bgColor = sf::Color::White;
 const sf::Color frameColor = sf::Color(100, 100, 100);
 std::string savePath = "/Users/gleb/Projects/C++/SFML/Genetic-Algorithm-World-2/gen_alg_w2/saves/";
-int debug = 0; // 0 - none, 1 - text, 2 - field
-int iteration = 0;
+int iteration, debug = 0; // 0 - none, 1 - text, 2 - field
+char showMode = 'd';
 
 
 class World{
@@ -159,9 +159,9 @@ public:
         }
     } bots[MBA];
     
-    sf::Color get_bot_color(int i, char mode = 'd'){
+    sf::Color get_bot_color(int i/*, char mode = 'd'*/){
         int xc;
-        switch (mode){
+        switch (showMode/*mode*/){
             case 'e':
                 xc = 250 - (int)((float)bots[i].energy / max_energy * 150);
                 return sf::Color(255, xc, 0);
@@ -611,14 +611,31 @@ void custom_bot(World::Bot *bot, int number){
 }
 
 
+void change_showMode(){
+    switch (showMode) {
+        case 'e':
+            showMode = 'd';
+            break;
+        case 'd':
+            showMode = 'e';
+            break;
+    }
+}
+
+
 int main(){
-    srand(static_cast<unsigned int>(time(nullptr))); 
+    //srand(static_cast<unsigned int>(time(nullptr)));
     sf::ContextSettings settings;
     settings.antialiasingLevel = 8;
     sf::RenderWindow window(sf::VideoMode(width, height), "Gen Alg", sf::Style::Default, settings);
     sf::Text text;
     sf::Font font;
     set_text_settings(&text, &font, 30, sf::Color::Green);
+    label_Start:
+    iteration = 0;
+    srand(static_cast<unsigned int>(time(nullptr)));
+    unsigned int seed = rand();
+    srand(seed);
     World world(100);
     WindowField winfld(14, 2);
     //custom_bot(&world.bots[0], 5);
@@ -632,6 +649,24 @@ int main(){
                 case sf::Event::Closed:
                     window.close();
                     break;
+                case sf::Event::KeyPressed:
+                    switch (event.key.code) {
+                        case sf::Keyboard::R:
+                            goto label_Start;
+                            break;
+                        case sf::Keyboard::S:
+                            printf("seed is %u\n", seed);
+                            break;
+                        case sf::Keyboard::Q:
+                            window.close();
+                            break;
+                        case sf::Keyboard::M:
+                            //window.close();
+                            change_showMode();
+                            break;
+                        default:
+                            break;
+                    }
                 default:
                     break;
             }
@@ -639,7 +674,7 @@ int main(){
         
         iteration ++;
         world.bots_act();
-        if (iteration % 1 == 0){
+        if (iteration % 15 == 0){
             window.clear();
             //world.bots_act();
             winfld.draw(&window, world, text);
@@ -648,7 +683,7 @@ int main(){
                 window.draw(text);
             }
             window.display();
-            sf::sleep(sf::milliseconds(5));
+            sf::sleep(sf::milliseconds(10));
         }
         //world.bots_act();
     }
