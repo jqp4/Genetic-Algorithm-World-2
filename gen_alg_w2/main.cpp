@@ -41,7 +41,7 @@ public:
     static const int mutation_probability = 50;
     static const int birth_energy = 70;
     int cell_division_energy = 20;
-    int fotosintesis_energy = 20;
+    int photosynthesis_energy = 20;
     int organics_energy = 50;
     int energy_perit = 10;
     int max_energy = 950;
@@ -50,20 +50,20 @@ public:
     class Bot{
     public:
         int genome[CA];
-        //int birthday;
         int pointer;
         int direction_look; // 0..8
         int energy;
-        int number;
         bool alive;
         int x, y;
         sf::Color color;
+        int energy_source; //0 - photo, 20 - kills
         
         Bot(){
             pointer = 0;
             energy  = birth_energy * 2;
             alive   = true;
             color   = sf::Color::Red;
+            energy_source = 10;
             direction_look = rand() % 8;
             for (int i = 0; i < CA; i++){
                 genome[i] = rca;
@@ -79,6 +79,7 @@ public:
             energy  = birth_energy;
             alive   = true;
             color   = sf::Color::Red;
+            energy_source = 10;
             direction_look = rand() % 8;
             for (int i = 0; i < CA; i++){
                 genome[i] = parent.genome[i];
@@ -158,12 +159,16 @@ public:
         }
     } bots[MBA];
     
-    sf::Color get_bot_color(int i, char mode = 'e'){
+    sf::Color get_bot_color(int i, char mode = 'd'){
         int xc;
         switch (mode){
             case 'e':
                 xc = 250 - (int)((float)bots[i].energy / max_energy * 150);
                 return sf::Color(255, xc, 0);
+                break;
+            case 'd':
+                xc = (int)((float)bots[i].energy_source / 20 * 150);
+                return sf::Color(100 + xc, 150 - xc, 250 - xc);
                 break;
             default:
                 return sf::Color(0, 0, 0);
@@ -232,8 +237,9 @@ public:
         return obj;
     }
     
-    void bot__fotosintesis(int i){
-        bots[i].energy = bots[i].energy + fotosintesis_energy;
+    void bot__photosynthesis(int i){
+        bots[i].energy = bots[i].energy + photosynthesis_energy;
+        bots[i].energy_source -= bots[i].energy_source > 0 ? 1 : 0;
         if (bots[i].energy > max_energy){
             bots[i].energy = max_energy + energy_perit;
         }
@@ -267,11 +273,13 @@ public:
         int obj = field[tx][ty];
         if (obj == -2){
             bots[i].energy = bots[i].energy + organics_energy;
+            bots[i].energy_source += bots[i].energy_source < 20 ? 1 : 0;
             field[tx][ty] = -1;
         } else if (obj == -1){
             //pass
         } else if (obj >= 0){
             bots[i].energy = bots[i].energy + organics_energy + bots[obj].energy/10;
+            bots[i].energy_source += bots[i].energy_source < 20 ? 1 : 0;
             bot__die(obj, true);
         }
         if (bots[i].energy > max_energy){
@@ -321,7 +329,7 @@ public:
                             bots[i].pointer = (p + 2) % CA;
                             break;
                         case 25:
-                            bot__fotosintesis(i);
+                            bot__photosynthesis(i);
                             bots[i].pointer = (p + 1) % CA;
                             break;
                         case 26:
@@ -407,7 +415,6 @@ public:
                 int tx = rand() % xLen;
                 int ty = rand() % yLen;
                 if (field[tx][ty] == -1){
-                    bots[i].number = i;
                     field[tx][ty] = i;
                     bots[i].x = tx;
                     bots[i].y = ty;
@@ -613,7 +620,7 @@ int main(){
     sf::Font font;
     set_text_settings(&text, &font, 30, sf::Color::Green);
     World world(100);
-    WindowField winfld(15, 2);
+    WindowField winfld(14, 2);
     //custom_bot(&world.bots[0], 5);
     //world.bots[0].filesave("test.txt");
     //world.bots[0].fileread("custom_bots/cbg1.txt");
